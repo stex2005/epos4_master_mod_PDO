@@ -34,14 +34,17 @@ void my_app::init()
 {
     // Reset previous Errorcode
     ecat_epos.reset_fault();
+    // Set Current Limit
     ecat_epos.set_current_limit(500);
     // Set Operation in Cyclic Synchronous Torque Mode
     ecat_epos.set_mode_operation(10);
+    // Set Offset torque
+    ecat_epos.set_offset_torque(0);
 
-
+    // Write on Shared Memory
     esmacat_sm.init();
     esmacat_sm.data->stop = false;
-    esmacat_sm.data->state = 1;
+    esmacat_sm.data->state = 2;
 
 }
 
@@ -57,28 +60,31 @@ void my_app::loop(){
    }
     else
     {
-        ecat_epos.stop_motor();
-
+        ecat_epos.start_motor();
         // Compute setpoint
-        double setpoint = 50*sin(2*3.1415*elapsed_time_ms/1000.0);
+        double setpoint = 100*sin(2*3.1415*elapsed_time_ms/1000.0);
         ecat_epos.set_target_torque(static_cast<int16_t>(setpoint));
         if (loop_cnt%100 == 0)
         {
             std::cout << esmacat_sm.data->loop_cnt << "\t" << esmacat_sm.data->state << endl;
+            ecat_epos.get_errorcode_hex();
         }
 
-        ecat_epos.get_errorcode_hex();
+        // Write on Shared Memory
         esmacat_sm.data->loop_cnt = loop_cnt;
+        // Read on Shared Memory
+        int state = esmacat_sm.data->state;
 
     }
 
-
-    if (loop_cnt > 5000 || esmacat_sm.data->state == 1)
+    if (loop_cnt > 5000)
     {
+        // First stop the motor
         ecat_epos.stop_motor();
     }
-    if(loop_cnt > 5500 || esmacat_sm.data->state == 0)
+    if(loop_cnt > 5500)
     {
+        // Then stop application
         esmacat_sm.data->stop = true;
         esmacat_sm.~esmacat_shared_memory_comm();
         stop();
